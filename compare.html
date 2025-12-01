@@ -396,24 +396,28 @@
         }
 
         function toggleCountrySelection(countryName) {
-            const index = selectedCountries.indexOf(countryName);
-            if (index === -1) {
-                if (selectedCountries.length < 4) {
-                    selectedCountries.push(countryName);
-                } else {
-                    alert('Maximum 4 countries can be compared at once');
-                    return;
-                }
-            } else {
-                selectedCountries.splice(index, 1);
-            }
-            renderCountryList(document.getElementById('searchInput').value);
-            if (selectedCountries.length >= 2) {
-                renderComparison();
-            } else {
-                clearComparison();
-            }
+    const index = selectedCountries.indexOf(countryName);
+
+    if (index === -1) {
+        // ONLY ALLOW 2 COUNTRIES
+        if (selectedCountries.length >= 2) {
+            alert("Maximum 2 countries allowed. Remove one first.");
+            return;
         }
+        selectedCountries.push(countryName);
+    } else {
+        selectedCountries.splice(index, 1);
+    }
+
+    renderCountryList(document.getElementById('searchInput').value);
+    updateCompareButton();
+
+    if (selectedCountries.length === 2) {
+        renderComparison();
+    } else {
+        clearComparison();
+    }
+}
 
         function updateCompareButton() {
             const btn = document.getElementById('compareBtn');
@@ -673,14 +677,12 @@ function renderEnhancedChart(countries) {
             // Compare button
             // Fix compare button functionality
             document.getElementById('compareBtn').addEventListener('click', () => {
-                if (selectedCountries.length < 2) {
-                    alert('Please select at least 2 countries to compare');
-                } else {
-                    renderComparison();
-                    // Scroll to results
-                    document.getElementById('comparisonResults').scrollIntoView({ behavior: 'smooth' });
-                }
-            });
+    if (selectedCountries.length !== 2) {
+        alert("Please select exactly 2 countries to compare.");
+        return;
+    }
+    renderComparison();
+});
         }
         // Add after renderComparisonChart function
 function generateComparisonInsights(countries) {
