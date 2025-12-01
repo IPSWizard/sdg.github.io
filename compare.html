@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Compare Countries | SDG Tracker</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@800;900&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <style>
+        /* MOBILE FIRST FIXES */
+@media (max-width: 768px) {
+    .container { padding: 10px; }
+    .dashboard { display: block !important; }
+    .card { width: 100% !important; margin-bottom: 15px !important; }
+    header { flex-direction: column; text-align: center; gap: 15px; }
+    .nav-controls { flex-direction: column; width: 100%; }
+    .nav-link, .control-btn { width: 100%; text-align: center; }
+    .sdg-grid { grid-template-columns: repeat(2, 1fr) !important; }
+    #mapContainer { height: 300px !important; }
+    .countries-grid { grid-template-columns: 1fr !important; }
+    .table-header, .table-row { grid-template-columns: 30px 1fr 80px !important; font-size: 0.8rem; }
+    div[style*="position: fixed"] > div { width: 95% !important; padding: 20px !important; margin: 10px; }
+}
+
+/* Tablet */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .sdg-grid { grid-template-columns: repeat(3, 1fr) !important; }
+    .countries-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+
+/* Desktop restore */
+@media (min-width: 1025px) {
+    .dashboard { display: grid !important; }
+    header { flex-direction: row; }
+    .nav-controls { flex-direction: row; width: auto; }
+}
+        :root {
+            --primary: #1a237e;
+            --secondary: #00bcd4;
+            --accent: #4caf50;
+            --dark: #0d1b2a;
+            --light: #f8f9fa;
+            --shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            --radius: 16px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            color: var(--light);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 25px 0;
+            margin-bottom: 30px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo i {
+            font-size: 2.8rem;
+            color: var(--secondary);
+        }
+
+        .logo h1 {
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 900;
+            font-size: 2.2rem;
+            background: linear-gradient(45deg, var(--secondary), var(--accent));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 15px;
+        }
+
+        .nav-link {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 50px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+            transition: all 0.3s;
+            text-decoration: none;
+        }
+
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-3px);
+        }
+
+        .back-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 50px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .comparison-container {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 30px;
+            margin-top: 20px;
+        }
+
+        .selection-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: var(--radius);
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .country-list {
+            max-height: 500px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+
+        .country-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .country-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .country-item.selected {
+            background: rgba(0, 188, 212, 0.2);
+            border: 1px solid var(--secondary);
+        }
+
+        .visualization-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-radius: var(--radius);
+            padding: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .chart-container {
+            height: 400px;
+            margin-top: 20px;
+        }
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .metric-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 10px 0;
+            background: linear-gradient(45deg, var(--secondary), var(--accent));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        @media (max-width: 1024px) {
+            .comparison-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <i class="fas fa-chart-bar"></i>
+                <div>
+                    <h1>SDG COUNTRY COMPARISON</h1>
+                    <p>Compare Sustainable Development Progress Across Nations</p>
+                </div>
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">
+                    <i class="fas fa-home"></i> Dashboard
+                </a>
+                <a href="all-countries.html" class="nav-link">
+                    <i class="fas fa-list"></i> All Countries
+                </a>
+            </div>
+        </header>
+
+        <button class="back-btn" onclick="window.history.back()">
+            <i class="fas fa-arrow-left"></i> Back
+        </button>
+
+        <div class="comparison-container">
+            <div class="selection-panel">
+                <h2 style="margin-bottom: 20px;"><i class="fas fa-plus"></i> Select Countries to Compare</h2>
+                <div style="margin-bottom: 20px;">
+                    <input type="text" id="searchInput" placeholder="Search countries..." style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: none; border-radius: 10px; color: white;">
+                </div>
+                <div class="country-list" id="countryList"></div>
+                <div style="margin-top: 20px; display: flex; gap: 10px;">
+                    <button id="clearSelection" style="flex: 1; padding: 12px; background: rgba(244,67,54,0.2); color: #F44336; border: none; border-radius: 10px; cursor: pointer;">
+                        Clear All
+                    </button>
+                    <button id="compareBtn" style="flex: 2; padding: 12px; background: var(--secondary); color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: 600;">
+                        <i class="fas fa-chart-line"></i> Compare Selected (0)
+                    </button>
+                </div>
+            </div>
+
+            <div class="visualization-panel">
+                <h2 style="margin-bottom: 20px;"><i class="fas fa-chart-bar"></i> Comparison Results</h2>
+                <div id="comparisonResults">
+                    <div style="text-align: center; padding: 60px 20px; opacity: 0.7;">
+                        <i class="fas fa-chart-bar" style="font-size: 4rem; margin-bottom: 20px; opacity: 0.3;"></i>
+                        <h3>Select countries to compare</h3>
+                        <p>Choose 2-4 countries from the left panel to see detailed comparison</p>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="comparisonChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sample country data
+        const allCountries = [
+        { name: "Finland", score: 86.8, region: "europe", flag: "🇫🇮", population: "5.5M", goalsOnTrack: 14, trend: "up", gdp: "$48,800", rank: 1 },
+    { name: "Sweden", score: 86.0, region: "europe", flag: "🇸🇪", population: "10.4M", goalsOnTrack: 14, trend: "up", gdp: "$52,300", rank: 2 },
+    { name: "Denmark", score: 85.6, region: "europe", flag: "🇩🇰", population: "5.8M", goalsOnTrack: 13, trend: "stable", gdp: "$61,500", rank: 3 },
+    { name: "Germany", score: 83.5, region: "europe", flag: "🇩🇪", population: "83.2M", goalsOnTrack: 12, trend: "up", gdp: "$51,400", rank: 4 },
+    { name: "France", score: 81.2, region: "europe", flag: "🇫🇷", population: "67.4M", goalsOnTrack: 12, trend: "up", gdp: "$42,000", rank: 8 },
+    { name: "United Kingdom", score: 80.8, region: "europe", flag: "🇬🇧", population: "67.2M", goalsOnTrack: 12, trend: "stable", gdp: "$46,000", rank: 9 },
+    { name: "Norway", score: 84.5, region: "europe", flag: "🇳🇴", population: "5.4M", goalsOnTrack: 13, trend: "up", gdp: "$67,900", rank: 5 },
+    { name: "Netherlands", score: 82.8, region: "europe", flag: "🇳🇱", population: "17.4M", goalsOnTrack: 12, trend: "up", gdp: "$52,300", rank: 6 },
+    { name: "Switzerland", score: 82.5, region: "europe", flag: "🇨🇭", population: "8.6M", goalsOnTrack: 12, trend: "up", gdp: "$68,400", rank: 7 },
+    { name: "Austria", score: 81.8, region: "europe", flag: "🇦🇹", population: "9.0M", goalsOnTrack: 12, trend: "stable", gdp: "$48,300", rank: 10 },
+    { name: "Ireland", score: 80.1, region: "europe", flag: "🇮🇪", population: "5.0M", goalsOnTrack: 11, trend: "up", gdp: "$79,900", rank: 11 },
+    { name: "Belgium", score: 79.8, region: "europe", flag: "🇧🇪", population: "11.6M", goalsOnTrack: 11, trend: "up", gdp: "$46,600", rank: 12 },
+    { name: "Spain", score: 79.8, region: "europe", flag: "🇪🇸", population: "47.4M", goalsOnTrack: 11, trend: "up", gdp: "$30,000", rank: 13 },
+    { name: "Italy", score: 79.4, region: "europe", flag: "🇮🇹", population: "60.4M", goalsOnTrack: 11, trend: "stable", gdp: "$34,800", rank: 14 },
+    { name: "Portugal", score: 78.2, region: "europe", flag: "🇵🇹", population: "10.3M", goalsOnTrack: 11, trend: "up", gdp: "$32,600", rank: 15 },
+    { name: "Greece", score: 75.4, region: "europe", flag: "🇬🇷", population: "10.7M", goalsOnTrack: 10, trend: "up", gdp: "$29,000", rank: 16 },
+    { name: "Poland", score: 74.9, region: "europe", flag: "🇵🇱", population: "37.9M", goalsOnTrack: 10, trend: "up", gdp: "$34,800", rank: 17 },
+    { name: "Czech Republic", score: 74.5, region: "europe", flag: "🇨🇿", population: "10.7M", goalsOnTrack: 10, trend: "up", gdp: "$40,200", rank: 18 },
+    { name: "Hungary", score: 73.2, region: "europe", flag: "🇭🇺", population: "9.7M", goalsOnTrack: 9, trend: "stable", gdp: "$33,400", rank: 19 },
+    { name: "Romania", score: 71.8, region: "europe", flag: "🇷🇴", population: "19.3M", goalsOnTrack: 9, trend: "up", gdp: "$30,100", rank: 20 },
+
+    // Asia (15 countries)
+    { name: "Japan", score: 79.4, region: "asia", flag: "🇯🇵", population: "125.7M", goalsOnTrack: 11, trend: "up", gdp: "$42,200", rank: 21 },
+    { name: "South Korea", score: 78.5, region: "asia", flag: "🇰🇷", population: "51.7M", goalsOnTrack: 11, trend: "up", gdp: "$33,000", rank: 22 },
+    { name: "Singapore", score: 77.2, region: "asia", flag: "🇸🇬", population: "5.7M", goalsOnTrack: 11, trend: "up", gdp: "$93,400", rank: 23 },
+    { name: "China", score: 72.1, region: "asia", flag: "🇨🇳", population: "1.41B", goalsOnTrack: 10, trend: "up", gdp: "$10,500", rank: 24 },
+    { name: "India", score: 66.2, region: "asia", flag: "🇮🇳", population: "1.38B", goalsOnTrack: 7, trend: "up", gdp: "$6,700", rank: 25 },
+    { name: "Thailand", score: 70.5, region: "asia", flag: "🇹🇭", population: "69.8M", goalsOnTrack: 9, trend: "up", gdp: "$17,000", rank: 26 },
+    { name: "Indonesia", score: 68.9, region: "asia", flag: "🇮🇩", population: "273.5M", goalsOnTrack: 8, trend: "up", gdp: "$12,300", rank: 27 },
+    { name: "Vietnam", score: 67.5, region: "asia", flag: "🇻🇳", population: "97.3M", goalsOnTrack: 8, trend: "up", gdp: "$8,600", rank: 28 },
+    { name: "Philippines", score: 65.8, region: "asia", flag: "🇵🇭", population: "109.6M", goalsOnTrack: 7, trend: "up", gdp: "$9,300", rank: 29 },
+    { name: "Malaysia", score: 71.2, region: "asia", flag: "🇲🇾", population: "32.4M", goalsOnTrack: 9, trend: "up", gdp: "$27,900", rank: 30 },
+    { name: "Saudi Arabia", score: 69.8, region: "asia", flag: "🇸🇦", population: "34.8M", goalsOnTrack: 8, trend: "stable", gdp: "$46,800", rank: 31 },
+    { name: "United Arab Emirates", score: 73.1, region: "asia", flag: "🇦🇪", population: "9.9M", goalsOnTrack: 9, trend: "up", gdp: "$67,700", rank: 32 },
+    { name: "Turkey", score: 70.3, region: "asia", flag: "🇹🇷", population: "84.3M", goalsOnTrack: 9, trend: "stable", gdp: "$28,000", rank: 33 },
+    { name: "Iran", score: 66.8, region: "asia", flag: "🇮🇷", population: "83.9M", goalsOnTrack: 7, trend: "down", gdp: "$12,400", rank: 34 },
+    { name: "Pakistan", score: 61.5, region: "asia", flag: "🇵🇰", population: "220.9M", goalsOnTrack: 6, trend: "up", gdp: "$4,600", rank: 35 },
+
+    // Africa (10 countries)
+    { name: "South Africa", score: 63.5, region: "africa", flag: "🇿🇦", population: "60.1M", goalsOnTrack: 6, trend: "down", gdp: "$12,300", rank: 36 },
+    { name: "Nigeria", score: 58.7, region: "africa", flag: "🇳🇬", population: "206.1M", goalsOnTrack: 5, trend: "down", gdp: "$5,400", rank: 37 },
+    { name: "Egypt", score: 65.8, region: "africa", flag: "🇪🇬", population: "102.3M", goalsOnTrack: 7, trend: "up", gdp: "$12,000", rank: 38 },
+    { name: "Kenya", score: 61.2, region: "africa", flag: "🇰🇪", population: "53.8M", goalsOnTrack: 6, trend: "up", gdp: "$4,500", rank: 39 },
+    { name: "Ethiopia", score: 59.8, region: "africa", flag: "🇪🇹", population: "114.9M", goalsOnTrack: 5, trend: "up", gdp: "$2,400", rank: 40 },
+    { name: "Ghana", score: 62.5, region: "africa", flag: "🇬🇭", population: "31.1M", goalsOnTrack: 6, trend: "up", gdp: "$5,400", rank: 41 },
+    { name: "Morocco", score: 67.2, region: "africa", flag: "🇲🇦", population: "37.1M", goalsOnTrack: 8, trend: "up", gdp: "$7,800", rank: 42 },
+    { name: "Tanzania", score: 60.5, region: "africa", flag: "🇹🇿", population: "59.7M", goalsOnTrack: 6, trend: "up", gdp: "$2,700", rank: 43 },
+    { name: "Uganda", score: 58.2, region: "africa", flag: "🇺🇬", population: "45.7M", goalsOnTrack: 5, trend: "up", gdp: "$2,200", rank: 44 },
+    { name: "Algeria", score: 64.8, region: "africa", flag: "🇩🇿", population: "43.9M", goalsOnTrack: 7, trend: "stable", gdp: "$11,300", rank: 45 },
+
+    // Americas (10 countries)
+    { name: "United States", score: 75.9, region: "americas", flag: "🇺🇸", population: "331.9M", goalsOnTrack: 10, trend: "stable", gdp: "$63,400", rank: 46 },
+    { name: "Canada", score: 82.0, region: "americas", flag: "🇨🇦", population: "38.0M", goalsOnTrack: 13, trend: "up", gdp: "$48,700", rank: 47 },
+    { name: "Brazil", score: 73.8, region: "americas", flag: "🇧🇷", population: "213.3M", goalsOnTrack: 9, trend: "down", gdp: "$14,600", rank: 48 },
+    { name: "Mexico", score: 70.8, region: "americas", flag: "🇲🇽", population: "128.9M", goalsOnTrack: 9, trend: "up", gdp: "$19,800", rank: 49 },
+    { name: "Argentina", score: 71.2, region: "americas", flag: "🇦🇷", population: "45.4M", goalsOnTrack: 9, trend: "stable", gdp: "$22,000", rank: 50 },
+    { name: "Chile", score: 77.5, region: "americas", flag: "🇨🇱", population: "19.1M", goalsOnTrack: 11, trend: "up", gdp: "$23,300", rank: 51 },
+    { name: "Colombia", score: 69.8, region: "americas", flag: "🇨🇴", population: "50.9M", goalsOnTrack: 9, trend: "up", gdp: "$14,300", rank: 52 },
+    { name: "Peru", score: 68.5, region: "americas", flag: "🇵🇪", population: "32.9M", goalsOnTrack: 8, trend: "up", gdp: "$12,200", rank: 53 },
+    { name: "Venezuela", score: 55.2, region: "americas", flag: "🇻🇪", population: "28.4M", goalsOnTrack: 4, trend: "down", gdp: "$3,100", rank: 54 },
+    { name: "Cuba", score: 72.5, region: "americas", flag: "🇨🇺", population: "11.3M", goalsOnTrack: 10, trend: "stable", gdp: "$9,000", rank: 55 },
+
+    // Oceania (5 countries)
+    { name: "Australia", score: 77.8, region: "oceania", flag: "🇦🇺", population: "25.7M", goalsOnTrack: 11, trend: "stable", gdp: "$55,000", rank: 56 },
+    { name: "New Zealand", score: 77.5, region: "oceania", flag: "🇳🇿", population: "5.1M", goalsOnTrack: 11, trend: "up", gdp: "$42,900", rank: 57 },
+    { name: "Papua New Guinea", score: 54.8, region: "oceania", flag: "🇵🇬", population: "8.9M", goalsOnTrack: 4, trend: "stable", gdp: "$3,800", rank: 58 },
+    { name: "Fiji", score: 62.5, region: "oceania", flag: "🇫🇯", population: "0.9M", goalsOnTrack: 6, trend: "up", gdp: "$5,400", rank: 59 },
+    { name: "Solomon Islands", score: 51.2, region: "oceania", flag: "🇸🇧", population: "0.7M", goalsOnTrack: 3, trend: "up", gdp: "$2,200", rank: 60 }
+
+        ];
+
+        let selectedCountries = [];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            renderCountryList();
+            setupEventListeners();
+        });
+
+        function renderCountryList(filter = '') {
+            const container = document.getElementById('countryList');
+            container.innerHTML = '';
+
+            const filtered = allCountries.filter(country =>
+                country.name.toLowerCase().includes(filter.toLowerCase()) ||
+                country.region.toLowerCase().includes(filter.toLowerCase())
+            );
+
+            filtered.forEach(country => {
+                const isSelected = selectedCountries.includes(country.name);
+                const item = document.createElement('div');
+                item.className = `country-item ${isSelected ? 'selected' : ''}`;
+                item.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="font-size: 1.5rem;">${country.flag}</div>
+                        <div>
+                            <div style="font-weight: 600;">${country.name}</div>
+                            <div style="font-size: 0.8rem; opacity: 0.7;">${country.region} • ${country.score}/100</div>
+                        </div>
+                    </div>
+                    <div>
+                        ${isSelected ?
+                            '<i class="fas fa-check-circle" style="color: #4CAF50;"></i>' :
+                            '<i class="fas fa-plus-circle" style="opacity: 0.5;"></i>'}
+                    </div>
+                `;
+
+                item.addEventListener('click', () => {
+                    toggleCountrySelection(country.name);
+                });
+
+                container.appendChild(item);
+            });
+
+            updateCompareButton();
+        }
+
+        function toggleCountrySelection(countryName) {
+            const index = selectedCountries.indexOf(countryName);
+            if (index === -1) {
+                if (selectedCountries.length < 4) {
+                    selectedCountries.push(countryName);
+                } else {
+                    alert('Maximum 4 countries can be compared at once');
+                    return;
+                }
+            } else {
+                selectedCountries.splice(index, 1);
+            }
+            renderCountryList(document.getElementById('searchInput').value);
+            if (selectedCountries.length >= 2) {
+                renderComparison();
+            } else {
+                clearComparison();
+            }
+        }
+
+        function updateCompareButton() {
+            const btn = document.getElementById('compareBtn');
+            btn.innerHTML = `<i class="fas fa-chart-line"></i> Compare Selected (${selectedCountries.length})`;
+        }
+
+        function renderComparison() {
+    const selectedData = allCountries.filter(c => selectedCountries.includes(c.name));
+
+    if (selectedData.length < 2) {
+        alert('Please select at least 2 countries to compare');
+        return;
+    }
+
+    // Update results panel with enhanced visualization
+    const resultsDiv = document.getElementById('comparisonResults');
+    resultsDiv.innerHTML = `
+        <div style="margin-bottom: 30px;">
+
+            <div style="display: grid; grid-template-columns: repeat(${selectedData.length}, 1fr); gap: 15px;">
+                ${selectedData.map(country => `
+                    <div style="background: rgba(255,255,255,0.08); border-radius: 12px; padding: 20px; text-align: center;">
+                        <div style="font-size: 2.5rem; margin-bottom: 10px;">${country.flag}</div>
+                        <div style="font-weight: 700; font-size: 1.2rem; margin-bottom: 5px;">${country.name}</div>
+                        <div style="font-size: 0.85rem; opacity: 0.7; margin-bottom: 15px;">${country.region}</div>
+
+                        <div style="font-size: 2.8rem; font-weight: 800; margin: 15px 0; background: linear-gradient(45deg, #00bcd4, #4caf50); -webkit-background-clip: text; background-clip: text; color: transparent;">
+                            ${country.score}
+                        </div>
+                        <div style="font-size: 0.9rem; opacity: 0.8;">Overall Score</div>
+
+                        <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+                            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 8px;">
+                                <span>Goals on Track</span>
+                                <span style="font-weight: 600;">${country.goalsOnTrack}/17</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 8px;">
+                                <span>GDP per capita</span>
+                                <span style="font-weight: 600;">${country.gdp}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
+                                <span>Trend</span>
+                                <span style="color: ${country.trend === 'up' ? '#4CAF50' : '#F44336'}">
+                                    <i class="fas fa-arrow-${country.trend}"></i> ${country.trend}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+
+        <div style="background: rgba(255,255,255,0.08); border-radius: 12px; padding: 25px; margin-top: 20px;">
+            <h3 style="margin-bottom: 20px; font-size: 1.2rem;"><i class="fas fa-award"></i> Performance Insights</h3>
+            <div>
+                ${generateInsights(selectedData)}
+            </div>
+        </div>
+    `;
+
+    // Render enhanced chart
+    renderEnhancedChart(selectedData);
+}
+
+function generateInsights(countries) {
+    if (countries.length < 2) return '';
+
+    const highest = countries.reduce((a, b) => a.score > b.score ? a : b);
+    const fastest = countries.reduce((a, b) => (a.trend === 'up' ? 1 : 0) > (b.trend === 'up' ? 1 : 0) ? a : b);
+
+    return `
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+            <div style="background: rgba(76,175,80,0.1); padding: 15px; border-radius: 8px;">
+                <div style="font-size: 0.9rem; opacity: 0.8; margin-bottom: 5px;">Top Performer</div>
+                <div style="font-weight: 700; font-size: 1.1rem; color: #4CAF50;">${highest.name}</div>
+                <div style="font-size: 0.85rem; opacity: 0.9;">Score: ${highest.score}/100</div>
+            </div>
+            <div style="background: rgba(0,188,212,0.1); padding: 15px; border-radius: 8px;">
+                <div style="font-size: 0.9rem; opacity: 0.8; margin-bottom: 5px;">Fastest Progress</div>
+                <div style="font-weight: 700; font-size: 1.1rem; color: #00bcd4;">${fastest.name}</div>
+                <div style="font-size: 0.85rem; opacity: 0.9;">Trend: ${fastest.trend}</div>
+            </div>
+        </div>
+        <div style="margin-top: 20px; font-size: 0.9rem; opacity: 0.9; line-height: 1.5;">
+            <strong>Key Finding:</strong> ${highest.name} leads with ${highest.score} score,
+            while ${fastest.name} shows the strongest momentum with ${fastest.trend} trend.
+            The average score among selected countries is ${(countries.reduce((sum, c) => sum + c.score, 0) / countries.length).toFixed(1)}/100.
+        </div>
+    `;
+}
+
+function renderEnhancedChart(countries) {
+    const ctx = document.getElementById('comparisonChart').getContext('2d');
+
+    if (window.comparisonChart) {
+        window.comparisonChart.destroy();
+    }
+
+    // Prepare data for comparison
+    const categories = ['SDG Score', 'Goals on Track', 'Economic Index', 'Progress Rate'];
+    const datasets = countries.map((country, index) => {
+        const colors = ['#4CAF50', '#2196F3', '#FF9800', '#9C27B0'];
+        return {
+            label: country.name,
+            data: [
+                country.score,
+                (country.goalsOnTrack / 17) * 100,
+                30 + Math.random() * 40, // Economic index placeholder
+                country.trend === 'up' ? 85 : country.trend === 'stable' ? 50 : 15
+            ],
+            backgroundColor: colors[index] + '40',
+            borderColor: colors[index],
+            borderWidth: 2,
+            pointBackgroundColor: colors[index],
+            pointBorderColor: '#fff',
+            pointHoverRadius: 8,
+            tension: 0.3
+        };
+    });
+
+    window.comparisonChart = new Chart(ctx, {
+        type: 'radar',
+        data: {
+            labels: categories,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: 'white',
+                        font: {
+                            size: 12
+                        }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    titleColor: 'white',
+                    bodyColor: 'white'
+                }
+            },
+            scales: {
+                r: {
+                    angleLines: {
+                        color: 'rgba(255,255,255,0.1)'
+                    },
+                    grid: {
+                        color: 'rgba(255,255,255,0.1)'
+                    },
+                    pointLabels: {
+                        color: 'white',
+                        font: {
+                            size: 11
+                        }
+                    },
+                    ticks: {
+                        backdropColor: 'transparent',
+                        color: 'white',
+                        stepSize: 20
+                    },
+                    beginAtZero: true,
+                    suggestedMax: 100
+                }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            }
+        }
+    });
+}
+        function renderComparisonChart(countries) {
+            const ctx = document.getElementById('comparisonChart').getContext('2d');
+
+            // Destroy existing chart if exists
+            if (window.comparisonChart) {
+                window.comparisonChart.destroy();
+            }
+
+            const sdgGoals = [
+                'No Poverty', 'Zero Hunger', 'Health', 'Education', 'Gender', 'Water',
+                'Energy', 'Work', 'Innovation', 'Inequality', 'Cities', 'Consumption',
+                'Climate', 'Water Life', 'Land Life', 'Peace', 'Partnerships'
+            ];
+
+            // Generate random scores for each goal (for demo)
+            const datasets = countries.map((country, index) => {
+                const colors = ['#4CAF50', '#2196F3', '#FF9800', '#9C27B0'];
+                return {
+                    label: country.name,
+                    data: sdgGoals.map(() => 30 + Math.random() * 50),
+                    borderColor: colors[index],
+                    backgroundColor: colors[index] + '20',
+                    tension: 0.4,
+                    fill: true
+                };
+            });
+
+            window.comparisonChart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: sdgGoals,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: 'white' }
+                        }
+                    },
+                    scales: {
+                        r: {
+                            angleLines: { color: 'rgba(255,255,255,0.1)' },
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            pointLabels: { color: 'white' },
+                            ticks: {
+                                backdropColor: 'transparent',
+                                color: 'white'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function clearComparison() {
+            document.getElementById('comparisonResults').innerHTML = `
+                <div style="text-align: center; padding: 60px 20px; opacity: 0.7;">
+                    <i class="fas fa-chart-bar" style="font-size: 4rem; margin-bottom: 20px; opacity: 0.3;"></i>
+                    <h3>Select countries to compare</h3>
+                    <p>Choose 2-4 countries from the left panel to see detailed comparison</p>
+                </div>
+            `;
+            if (window.comparisonChart) {
+                window.comparisonChart.destroy();
+            }
+        }
+
+        function setupEventListeners() {
+            // Search
+            document.getElementById('searchInput').addEventListener('input', (e) => {
+                renderCountryList(e.target.value);
+            });
+
+            // Clear selection
+            document.getElementById('clearSelection').addEventListener('click', () => {
+                selectedCountries = [];
+                renderCountryList(document.getElementById('searchInput').value);
+                clearComparison();
+            });
+
+            // Compare button
+            // Fix compare button functionality
+            document.getElementById('compareBtn').addEventListener('click', () => {
+                if (selectedCountries.length < 2) {
+                    alert('Please select at least 2 countries to compare');
+                } else {
+                    renderComparison();
+                    // Scroll to results
+                    document.getElementById('comparisonResults').scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+        }
+        // Add after renderComparisonChart function
+function generateComparisonInsights(countries) {
+    if (countries.length < 2) return '';
+
+    const highest = countries.reduce((a, b) => a.score > b.score ? a : b);
+    const lowest = countries.reduce((a, b) => a.score < b.score ? a : b);
+    const avgScore = (countries.reduce((sum, c) => sum + c.score, 0) / countries.length).toFixed(1);
+
+    const insights = [
+        `🏆 <strong>${highest.name}</strong> leads with ${highest.score}/100 score`,
+        `📈 The average score is <strong>${avgScore}/100</strong>`,
+        `🎯 Gap between highest and lowest: <strong>${(highest.score - lowest.score).toFixed(1)} points</strong>`,
+        `🌍 ${countries.filter(c => c.trend === 'up').length} countries showing positive progress`
+    ];
+
+    // Special insights based on comparison
+    const specialInsights = [];
+    if (highest.score - lowest.score > 20) {
+        specialInsights.push("⚠️ <strong>Significant development gap</strong> detected between countries");
+    }
+    if (countries.every(c => c.trend === 'up')) {
+        specialInsights.push("📊 <strong>All selected countries</strong> are making positive progress");
+    }
+
+    return `
+        <div style="background: rgba(255,255,255,0.08); border-radius: 12px; padding: 25px; margin-top: 20px;">
+            <h4 style="margin-bottom: 15px; font-size: 1.1rem;"><i class="fas fa-lightbulb"></i> Key Insights</h4>
+            <div style="display: grid; gap: 12px; margin-bottom: ${specialInsights.length > 0 ? '20px' : '0'};">
+                ${insights.map(insight => `
+                    <div style="display: flex; align-items: center; gap: 10px; font-size: 0.95rem;">
+                        <div style="width: 8px; height: 8px; background: #00bcd4; border-radius: 50%;"></div>
+                        <div>${insight}</div>
+                    </div>
+                `).join('')}
+            </div>
+
+            ${specialInsights.length > 0 ? `
+                <div style="background: rgba(255,193,7,0.1); border-left: 4px solid #FFC107; padding: 15px; border-radius: 0 8px 8px 0;">
+                    ${specialInsights.map(si => `
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                            <i class="fas fa-exclamation-triangle" style="color: #FFC107;"></i>
+                            <div>${si}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : ''}
+
+            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
+                <div style="font-size: 0.85rem; opacity: 0.8; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Compare up to 4 countries at once for optimal visualization</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Mobile touch fixes
+if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+    document.querySelectorAll('button, a, .nav-link').forEach(el => {
+        el.style.minHeight = '44px';
+        el.style.padding = '12px';
+    });
+}
+`${generateComparisonInsights(selectedData)}`;
+    </script>
+</body>
+</html>
